@@ -10,7 +10,7 @@ outside the output base, and registers the result as a
 nobody documents "first, install Vivado to `/tools/Xilinx`", and every machine
 building the workspace gets the same Vivado.
 
-This module contributes *only* a toolchain. The rules themselves --
+This module contributes _only_ a toolchain. The rules themselves --
 `vivado_synthesize`, `xsim_test`, `vivado_flow` and friends -- live in
 `rules_vivado`, which is unchanged and unaware of this module.
 
@@ -82,7 +82,7 @@ recorded as `AVAILABLE_MODULES` in `@vivado_vivado//:defs.bzl`.
 Bazel refetches an external repository whenever the repository rule, its
 attributes, or the output base change. A Vivado reinstall costs a ~100 GB
 download plus tens of minutes, for an artifact that never changes for given
-inputs -- so the installation lives *outside* the repository, in a
+inputs -- so the installation lives _outside_ the repository, in a
 content-addressed cache keyed on the archive checksum.
 
 By default it lands in Bazel's per-user output user root, at
