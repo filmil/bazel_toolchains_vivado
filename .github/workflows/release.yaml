@@ -7,9 +7,6 @@ on:
       tag_name:
         required: true
         type: string
-    secrets:
-      publish_token:
-        required: true
   # Or, developers can manually push a tag from their clone
   push:
     tags:
@@ -25,25 +22,10 @@ jobs:
     with:
       release_files: bazel_toolchains_vivado-*.tar.gz
       prerelease: false
-      # Open the release as a draft to support immutable GitHub releases.
-      # Attestations will be uploaded to the draft in publish.yaml.
-      # See:
-      #   https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases.
-      #   https://github.com/bazel-contrib/publish-to-bcr#immutable-releases
-      draft: true
+      # Published directly rather than as a draft. The upstream template opens a
+      # draft so a Bazel Central Registry publish job can attach attestations
+      # before the release goes live; this repository has no such job -- the BCR
+      # submission is made by whoever hosts the module, using the templates in
+      # //.bcr -- so there is nothing to wait for.
+      draft: false
       tag_name: ${{ inputs.tag_name || github.ref_name }}
-  publish:
-    needs: release
-    uses: ./.github/workflows/publish.yaml
-    with:
-      tag_name: ${{ inputs.tag_name || github.ref_name }}
-    secrets:
-      publish_token: ${{ secrets.publish_token || secrets.BCR_PUBLISH_TOKEN }}
-  finalize:
-    # Publish the draft release
-    needs: publish
-    runs-on: ubuntu-latest
-    steps:
-      - uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
-        with:
-          tag_name: ${{ inputs.tag_name || github.ref_name }}
