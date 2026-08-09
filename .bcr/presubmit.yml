@@ -1,0 +1,17 @@
+# The AMD/Xilinx installer only ships for Linux, and the toolchain this module
+# registers carries an @platforms//os:linux exec constraint, so there is nothing
+# for the macOS and Windows runners to resolve.
+bcr_test_module:
+  module_path: "e2e/smoke"
+  matrix:
+    platform: ["debian11", "ubuntu2204"]
+    bazel: ["8.*", "9.*"]
+  tasks:
+    run_tests:
+      name: "Run test module"
+      platform: ${{ platform }}
+      bazel: ${{ bazel }}
+      build_targets:
+        - "//..."
+      test_targets:
+        - "//..."

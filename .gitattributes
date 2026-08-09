@@ -1,0 +1,10 @@
+#################################
+# Configuration for 'git archive'
+# See https://git-scm.com/docs/git-archive#ATTRIBUTES
+
+# Don't include the end-to-end test workspaces in the distribution artifact.
+e2e export-ignore
+
+# The synthetic installer archive is a test fixture; keep git from trying to
+# diff or normalize it.
+*.tar binary

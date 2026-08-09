@@ -1,0 +1,25 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load("@rules_vivado//vivado:defs.bzl", "vivado_synthesize")
+
+verilog_library(
+    name = "hello",
+    srcs = ["hello.sv"],
+)
+
+# Resolves the toolchain toolchains_vivado registered and runs synthesis through
+# it. Nothing in this package references toolchains_vivado directly -- that is
+# the point.
+vivado_synthesize(
+    name = "hello_synth",
+    module = ":hello",
+    module_top = "hello",
+    part_number = "xc7a35tcpg236-1",
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+build_test(
+    name = "smoke_test",
+    target_compatible_with = ["@platforms//os:linux"],
+    targets = [":hello_synth"],
+)

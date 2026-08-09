@@ -1,0 +1,35 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":install_config_test.bzl", "install_config_test_suite")
+load(":vivado_smoke.bzl", "vivado_smoke")
+
+package(default_visibility = ["//visibility:private"])
+
+# Consumed by the dev-only `vivado.install` tag in //:MODULE.bazel. A repository
+# rule runs before the build graph exists, so this has to be a checked-in source
+# file rather than something Bazel builds. Regenerate it with
+# `vivado/tests/fake_installer/make_fake_installer.sh`.
+exports_files(["fake_installer.tar"])
+
+install_config_test_suite(name = "install_config_test")
+
+# The end-to-end check: the toolchain registered from the synthetic installer is
+# resolved, its shim is executed, and it produces the declared outputs. This is
+# the only test that covers the whole provisioning path -- extract, ConfigGen,
+# config rewrite, batch install, cache marker, shim, toolchain resolution.
+#
+# The AMD installer only ships for Linux, so the generated toolchain carries an
+# `@platforms//os:linux` exec constraint and there is nothing to resolve
+# elsewhere.
+vivado_smoke(
+    name = "smoke",
+    tags = ["requires-fake-vivado"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+sh_test(
+    name = "smoke_test",
+    srcs = ["smoke_test.sh"],
+    data = [":smoke"],
+    env = {"FILES": "$(rootpaths :smoke)"},
+    target_compatible_with = ["@platforms//os:linux"],
+)

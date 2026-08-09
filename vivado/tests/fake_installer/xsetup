@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# A stand-in for the AMD/Xilinx unified installer's `xsetup`, implementing just
+# enough of its batch interface to exercise //vivado/private:vivado_installation
+# end to end in CI: `ConfigGen` emits a configuration in the real installer's
+# format, and `Install` materializes a Vivado-shaped tree.
+#
+# The real installer is a ~100 GB download behind an AMD login, so it can never
+# run on a public CI runner. Everything this stub does is deliberately shaped
+# like the real thing: the `Name:0,Name:1` selection lines, the two-level
+# `<Destination>/<version>/Vivado` install layout, and `settings64.sh` being the
+# only thing that puts Vivado on PATH.
+set -euo pipefail
+
+readonly VERSION="2025.2"
+
+# The module menu mirrors the real 2025.2 installer's, trimmed. The rewriting
+# logic under test matches requested names against these entries.
+readonly MODULES="Spartan-7 FPGAs:0,Artix-7 FPGAs:0,Artix UltraScale+ FPGAs:0,Kintex-7 FPGAs:0,Zynq-7000 All Programmable SoC:0,DocNav:0"
+readonly INSTALL_OPTIONS="Acquire or Manage a License Key:0"
+
+die() {
+  echo "fake xsetup: $*" >&2
+  exit 1
+}
+
+config_gen() {
+  local product="" edition=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --product) product="$2"; shift 2 ;;
+      --edition) edition="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  [[ -n "${product}" ]] || die "ConfigGen requires --product"
+  [[ -n "${edition}" ]] || die "ConfigGen requires --edition"
+
+  # The real xsetup writes here too (resolving the home directory through the
+  # password database rather than $HOME; the repository rule copes with both).
+  mkdir -p "${HOME}/.Xilinx"
+  cat > "${HOME}/.Xilinx/install_config.txt" <<EOF
+#### Install Configuration ####
+Edition=${edition}
+Product=${product}
+Destination=/tools/Xilinx
+Modules=${MODULES}
+InstallOptions=${INSTALL_OPTIONS}
+CreateProgramGroupShortcuts=1
+CreateShortcutsForAllUsers=0
+CreateDesktopShortcuts=1
+CreateFileAssociation=1
+EOF
+}
+
+install() {
+  local config=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  [[ -n "${config}" ]] || die "Install requires --config"
+  [[ -f "${config}" ]] || die "no such config file: ${config}"
+
+  local destination
+  destination="$(sed -n 's/^Destination=//p' "${config}")"
+  [[ -n "${destination}" ]] || die "config has no Destination="
+
+  # Record what was selected so tests can assert the rewriting worked.
+  local selected
+  selected="$(sed -n 's/^Modules=//p' "${config}" | tr ',' '\n' \
+    | sed -n 's/:1$//p' | paste -sd, -)"
+
+  local root="${destination}/${VERSION}/Vivado"
+  mkdir -p "${root}/bin"
+
+  cat > "${root}/.selected_modules" <<EOF
+${selected}
+EOF
+
+  # Vivado is only usable after settings64.sh has been sourced; the generated
+  # shim is responsible for doing that, and the fake `vivado` below refuses to
+  # run if it wasn't.
+  cat > "${root}/settings64.sh" <<EOF
+export XILINX_VIVADO="${root}"
+export PATH="${root}/bin:\${PATH}"
+export LD_LIBRARY_PATH="${root}/lib/lnx64.o:\${LD_LIBRARY_PATH:-}"
+EOF
+
+  cp "$(dirname "${BASH_SOURCE[0]}")/fake_vivado.sh" "${root}/bin/vivado"
+  chmod +x "${root}/bin/vivado"
+}
+
+[[ $# -gt 0 ]] || die "no arguments"
+
+mode=""
+args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --batch) mode="$2"; shift 2 ;;
+    -b) mode="$2"; shift 2 ;;
+    --agree) shift 2 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+
+case "${mode}" in
+  ConfigGen) config_gen "${args[@]}" ;;
+  Install) install "${args[@]}" ;;
+  *) die "unsupported batch mode: '${mode}'" ;;
+esac

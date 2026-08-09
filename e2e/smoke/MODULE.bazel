@@ -1,0 +1,40 @@
+"""End-to-end consumer of toolchains_vivado.
+
+A standalone Bazel module wired up exactly as a downstream user would wire it:
+`bazel_dep` on rules_vivado and toolchains_vivado, one `vivado.install(...)`
+tag, and nothing else. No shim script, no `vivado_toolchain` target, no
+`register_toolchains` call -- toolchains_vivado registers the toolchain that
+rules_vivado's rules resolve.
+
+The BCR presubmit points at this module, so every release is exercised through
+the same surface a consumer would use. Because the real AMD installer is a
+~100 GB download behind a login, the `archive` here is the synthetic installer
+from toolchains_vivado's own test data; a real setup points `urls` at the AMD
+archive instead.
+"""
+
+module(
+    name = "toolchains_vivado_e2e_smoke",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "toolchains_vivado", version = "0.0.0")
+bazel_dep(name = "rules_vivado", version = "0.4.1")
+bazel_dep(name = "rules_verilog", version = "1.4.2")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+local_path_override(
+    module_name = "toolchains_vivado",
+    path = "../..",
+)
+
+vivado = use_extension("@toolchains_vivado//vivado:extensions.bzl", "vivado")
+vivado.install(
+    # A real consumer uses `urls` + `sha256` instead:
+    #   urls = ["file:///opt/archives/FPGAs_AdaptiveSoCs_Unified_SDI_2025.2_1114_2157_1.tar"],
+    #   sha256 = "...",
+    archive = "@toolchains_vivado//vivado/tests:fake_installer.tar",
+    modules = ["Artix-7"],
+    vivado_version = "2025.2",
+)

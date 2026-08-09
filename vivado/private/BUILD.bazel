@@ -1,0 +1,23 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = ["//vivado:__subpackages__"])
+
+exports_files(
+    [
+        "vivado_installation.bzl",
+        "toolchains_repo.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "vivado_installation",
+    srcs = ["vivado_installation.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "toolchains_repo",
+    srcs = ["toolchains_repo.bzl"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,48 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "defs.bzl",
+    "extensions.bzl",
+    "repositories.bzl",
+])
+
+bzl_library(
+    name = "repositories",
+    srcs = ["repositories.bzl"],
+    deps = [
+        "//vivado/private:toolchains_repo",
+        "//vivado/private:vivado_installation",
+    ],
+)
+
+bzl_library(
+    name = "extensions",
+    srcs = ["extensions.bzl"],
+    deps = [
+        ":repositories",
+        "//vivado/private:toolchains_repo",
+        "//vivado/private:vivado_installation",
+    ],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = [
+        ":repositories",
+        "//vivado/private:vivado_installation",
+    ],
+)
+
+# `bzl_library` already generates a `<name>.doc_extract` target for each library
+# in this package, and `.github/workflows/release_prep.sh` picks up every
+# `starlark_doc_extract` rule in the repository for the release's docs archive.
+# The repository rule's own documentation lives in a private package, so it
+# needs an explicit target to be published alongside the public API.
+starlark_doc_extract(
+    name = "vivado_installation_doc",
+    src = "//vivado/private:vivado_installation.bzl",
+    deps = ["//vivado/private:vivado_installation"],
+)
