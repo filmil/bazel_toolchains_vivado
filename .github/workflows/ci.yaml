@@ -35,12 +35,37 @@ jobs:
           repository-cache: true
           bazelrc: |
             ${{ matrix.folder == '.' && 'common --config=ci ' || '' }}
-            ${{ matrix.folder == '.' && !startsWith(matrix.bazel, '9.') && 'common --lockfile_mode=update' || '' }}
+            # This matrix floats to the newest 8.x and 9.x, either of which may
+            # want a newer MODULE.bazel.lock format than the pinned
+            # .bazelversion wrote, so these legs cannot honour the
+            # `--lockfile_mode=error` in //.bazelrc. The `lockfile` job below
+            # enforces it at the pinned version instead.
+            ${{ matrix.folder == '.' && 'common --lockfile_mode=update' || '' }}
       # Exercises the whole provisioning path against the synthetic installer in
       # //vivado/tests. The real AMD archive is a ~100 GB download behind a
       # login, so it can never run here; everything downstream of the archive is
       # the real code path.
       - run: bazel test //...
+  lockfile:
+    # Guards what //.bazelrc's `--lockfile_mode=error` is actually for: that the
+    # committed MODULE.bazel.lock is complete and current, so every developer
+    # resolves the same dependencies at the same bits.
+    #
+    # It has to be its own job because the `test` matrix deliberately floats
+    # Bazel to the newest 8.x and 9.x. A floating version can be newer than the
+    # pinned .bazelversion that wrote the lock, and the lock format changes
+    # between releases -- so those legs must tolerate a stale lock, and cannot
+    # be the thing that checks it. This job pins the version by omitting
+    # USE_BAZEL_VERSION, letting bazelisk read .bazelversion.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - run: bazel mod deps
   pre-commit:
     runs-on: ubuntu-latest
     steps:
@@ -49,7 +74,7 @@ jobs:
   # For branch protection settings, this job provides a "stable" name that can be
   # used to gate PR merges on "all matrix jobs were successful".
   conclusion:
-    needs: [test, pre-commit]
+    needs: [test, lockfile, pre-commit]
     runs-on: ubuntu-latest
     if: always()
     steps:
