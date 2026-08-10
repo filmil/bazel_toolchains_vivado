@@ -12,6 +12,7 @@ load(
     "entry_names",
     "patch_config",
     "resolve_selection",
+    "resolve_source",
     "select_line",
     "version_from_root",
 )
@@ -178,7 +179,82 @@ def _version_from_root_impl(ctx):
     )
     return unittest.end(env)
 
+def _resolve_source_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # Nothing in the environment: the module's own declaration is used.
+    plain = resolve_source(
+        urls = ["https://mirror/vivado.tar"],
+        archive = None,
+        sha256 = "abc",
+        env_url = "",
+        env_sha256 = "",
+    )
+    asserts.equals(env, ["https://mirror/vivado.tar"], plain.urls)
+    asserts.equals(env, "abc", plain.sha256)
+    asserts.false(env, plain.overridden)
+
+    # The override wins over a declared URL, and the committed checksum still
+    # applies -- redirecting to a mirror is safe, a substitution is caught.
+    over = resolve_source(
+        urls = ["https://mirror/vivado.tar"],
+        archive = None,
+        sha256 = "abc",
+        env_url = "file:///home/me/vivado.tar",
+        env_sha256 = "",
+    )
+    asserts.equals(env, ["file:///home/me/vivado.tar"], over.urls)
+    asserts.equals(env, "abc", over.sha256)
+    asserts.true(env, over.overridden)
+
+    # It wins over a vendored archive too: "use this file instead" should not
+    # depend on how the module happened to spell its default.
+    over_archive = resolve_source(
+        urls = [],
+        archive = "//third_party:vivado.tar",
+        sha256 = "",
+        env_url = "file:///home/me/vivado.tar",
+        env_sha256 = "",
+    )
+    asserts.equals(env, None, over_archive.archive)
+    asserts.equals(env, ["file:///home/me/vivado.tar"], over_archive.urls)
+
+    # Pointing at a genuinely different archive needs the checksum override.
+    both = resolve_source(
+        urls = ["https://mirror/vivado.tar"],
+        archive = None,
+        sha256 = "abc",
+        env_url = "file:///home/me/other.tar",
+        env_sha256 = "def",
+    )
+    asserts.equals(env, "def", both.sha256)
+
+    # An unset variable arrives as "" and must not be mistaken for a request to
+    # override with an empty URL.
+    blank = resolve_source(
+        urls = ["https://mirror/vivado.tar"],
+        archive = None,
+        sha256 = "abc",
+        env_url = "   ",
+        env_sha256 = "",
+    )
+    asserts.equals(env, ["https://mirror/vivado.tar"], blank.urls)
+    asserts.false(env, blank.overridden)
+
+    # Shell quoting and copy-paste leave stray whitespace behind.
+    padded = resolve_source(
+        urls = [],
+        archive = "//third_party:vivado.tar",
+        sha256 = "",
+        env_url = "  file:///home/me/vivado.tar\n",
+        env_sha256 = "  def  ",
+    )
+    asserts.equals(env, ["file:///home/me/vivado.tar"], padded.urls)
+    asserts.equals(env, "def", padded.sha256)
+    return unittest.end(env)
+
 _entry_names_test = unittest.make(_entry_names_impl)
+_resolve_source_test = unittest.make(_resolve_source_impl)
 _resolve_selection_test = unittest.make(_resolve_selection_impl)
 _select_line_test = unittest.make(_select_line_impl)
 _patch_config_test = unittest.make(_patch_config_impl)
@@ -197,6 +273,7 @@ def install_config_test_suite(name):
         _patch_config_defaults_test,
         _patch_config_test,
         _resolve_selection_test,
+        _resolve_source_test,
         _select_line_test,
         _version_from_root_test,
     )

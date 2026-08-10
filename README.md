@@ -40,6 +40,27 @@ instead of `urls`.
 **By installing this way you accept the AMD/Xilinx license agreements** listed
 in the `eulas` attribute; they are what `xsetup --agree` is given.
 
+### Overriding the archive location per machine
+
+That path is usually machine-specific, while `MODULE.bazel` is committed and
+shared. `VIVADO_INSTALLER_URL` overrides whatever the module declared, so a
+developer never has to keep a local edit to a tracked file:
+
+```
+# .bazelrc.user -- gitignored, so it stays yours
+common --repo_env=VIVADO_INSTALLER_URL=file:///home/me/Downloads/FPGAs_AdaptiveSoCs_Unified_SDI_2025.2_1114_2157_1.tar
+```
+
+It takes precedence over both `urls` and `archive`. The committed `sha256`
+still applies, so redirecting to a mirror of the same archive is safe and a
+substituted one fails the fetch; pair it with `VIVADO_INSTALLER_SHA256` when
+pointing at a genuinely different archive.
+
+Both are read with `getenv`, so changing either refetches the repository — and
+a refetch that lands on an already-installed cache entry takes about a second.
+Each distinct archive gets its own cache entry, so switching back and forth
+does not reinstall.
+
 ## Selecting installation components
 
 A full Vivado install is enormous, and almost all of it is device support you
