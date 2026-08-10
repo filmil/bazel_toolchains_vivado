@@ -49,6 +49,18 @@ AMD downloads require a login, so there is no default URL: point `urls` at a
 manually downloaded archive (`file:///...`) or an internal mirror, or vendor the
 archive into your repository and use `archive`.
 
+Because that path usually differs per machine while `MODULE.bazel` is committed
+and shared, `VIVADO_INSTALLER_URL` overrides whatever the module declared:
+
+```
+# .bazelrc.user, which is gitignored
+common --repo_env=VIVADO_INSTALLER_URL=file:///home/me/Downloads/FPGAs_AdaptiveSoCs_Unified_SDI_2025.2_1114_2157_1.tar
+```
+
+The committed `sha256` still applies, so redirecting to a mirror of the same
+archive is safe and a substituted one is caught; use `VIVADO_INSTALLER_SHA256`
+alongside it when pointing at a genuinely different archive.
+
 The extension always creates the `@vivado_toolchains` hub repository, which
 `toolchains_vivado`'s own `MODULE.bazel` registers. Without an `install` tag the
 hub is empty, so depending on this module without configuring it registers no
@@ -156,8 +168,11 @@ _install = tag_class(
         ),
         "sha256": attr.string(
             doc = "SHA-256 of the installer archive (`sha256sum <archive>`); " +
-                  "also the install cache key. Example: " +
-                  "`sha256 = \"0f1e...e1f0\"`.",
+                  "also the install cache key. Still applies when " +
+                  "`VIVADO_INSTALLER_URL` redirects to a mirror, so a " +
+                  "substituted archive is caught; override it with " +
+                  "`VIVADO_INSTALLER_SHA256` when pointing at a genuinely " +
+                  "different one. Example: `sha256 = \"0f1e...e1f0\"`.",
         ),
         "strip_prefix": attr.string(
             doc = "Directory prefix to strip from the extracted archive " +
@@ -166,7 +181,10 @@ _install = tag_class(
         "urls": attr.string_list(
             doc = "URLs of the AMD/Xilinx unified SDI installer archive; " +
                   "`file:///...` works for a manually downloaded copy. " +
-                  "Exactly one of `urls` or `archive` must be set.",
+                  "Exactly one of `urls` or `archive` must be set. The " +
+                  "`VIVADO_INSTALLER_URL` environment variable overrides " +
+                  "this at fetch time, so a path that differs per machine " +
+                  "does not have to be committed.",
         ),
         "vivado_version": attr.string(
             default = DEFAULT_VIVADO_VERSION,
